@@ -1,0 +1,37 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import PostForm from '../../../components/PostForm';
+import { getAdapter } from '../../../lib/server';
+import { CONTENT_TYPES, isContentType } from '../../../lib/content-types';
+
+const { type, id } = Astro.params;
+if (!isContentType(type) || !id) return Astro.redirect('/');
+
+const adapter = getAdapter(Astro.locals);
+const post = await adapter.get(type, id);
+if (!post) return Astro.redirect('/');
+
+const label = CONTENT_TYPES[type].label;
+const initial = {
+  id: post.id,
+  title: post.title,
+  description: post.description,
+  tags: post.tags,
+  pubDate: post.pubDate instanceof Date ? post.pubDate.toISOString() : String(post.pubDate),
+  draft: post.draft,
+  heroImage: post.heroImage,
+  body: post.body,
+};
+---
+
+<Layout title={`編集: ${post.title} — blog-cms`}>
+  <h1>{label}を編集</h1>
+  <PostForm client:load type={type} initial={initial} isNew={false} />
+
+  <hr style="margin:2rem 0;border:none;border-top:1px solid #8884" />
+  <form method="POST" action="/api/delete" onsubmit="return confirm('この記事を削除して commit します。よろしいですか?')">
+    <input type="hidden" name="type" value={type} />
+    <input type="hidden" name="id" value={id} />
+    <button class="secondary" style="color:#ef4444;border-color:#ef4444" type="submit">この記事を削除</button>
+  </form>
+</Layout>

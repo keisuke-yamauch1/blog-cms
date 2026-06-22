@@ -1,0 +1,28 @@
+{
+  "name": "blog-cms",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "astro-blog の入稿を担う Git-based ヘッドレスCMS（案C）。GitHub Contents API で Markdown を commit する。",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro build && wrangler pages dev ./dist",
+    "check": "astro check",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^12.2.1",
+    "@astrojs/preact": "^4.0.1",
+    "astro": "^5.1.1",
+    "gray-matter": "^4.0.3",
+    "octokit": "^4.0.2",
+    "preact": "^10.25.3",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "typescript": "^5.7.2",
+    "wrangler": "^3.99.0"
+  }
+}

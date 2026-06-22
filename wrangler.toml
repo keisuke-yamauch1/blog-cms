@@ -1,0 +1,7 @@
+name = "blog-cms"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "./dist"
+
+# Secrets（GITHUB_TOKEN など）は wrangler secret / Pages の環境変数で設定する。
+# ローカル開発では .dev.vars に書く（.gitignore 済み）。

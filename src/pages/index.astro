@@ -1,0 +1,50 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getAdapter } from '../lib/server';
+import { CONTENT_TYPES, contentTypeList } from '../lib/content-types';
+import type { PostMeta } from '../lib/schema';
+
+const adapter = getAdapter(Astro.locals);
+const types = contentTypeList();
+
+let groups: { type: string; label: string; posts: PostMeta[] }[] = [];
+let error: string | null = null;
+try {
+  groups = await Promise.all(
+    types.map(async (type) => ({
+      type,
+      label: CONTENT_TYPES[type].label,
+      posts: await adapter.list(type),
+    }))
+  );
+} catch (e: any) {
+  error = e.message ?? String(e);
+}
+
+const fmt = (d: Date) => (isNaN(d.getTime()) ? '-' : d.toISOString().slice(0, 10));
+---
+
+<Layout title="記事一覧 — blog-cms">
+  {error && <p style="color:#ef4444">⚠️ {error}</p>}
+  {groups.map((g) => (
+    <section style="margin-bottom:2rem">
+      <h2 style="display:flex;align-items:center;gap:0.75rem">
+        {g.label}
+        <a href={`/new/${g.type}`}><button class="secondary">+ 新規</button></a>
+      </h2>
+      {g.posts.length === 0 ? (
+        <p style="opacity:0.6">記事なし</p>
+      ) : (
+        <ul style="list-style:none;padding:0;margin:0">
+          {g.posts.map((p) => (
+            <li style="display:flex;gap:0.75rem;padding:0.4rem 0;border-bottom:1px solid #8882">
+              <span style="opacity:0.5;font-variant-numeric:tabular-nums">{fmt(p.pubDate)}</span>
+              <a href={`/edit/${g.type}/${p.id}`} style="flex:1">{p.title}</a>
+              {p.draft && <span style="font-size:0.7rem;opacity:0.6">下書き</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  ))}
+</Layout>

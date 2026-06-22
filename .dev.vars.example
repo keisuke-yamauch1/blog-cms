@@ -1,0 +1,13 @@
+# これを .dev.vars にコピーして値を埋める（.dev.vars は .gitignore 済み）
+# 本番は Cloudflare Pages の環境変数 / wrangler secret で設定する。
+
+# 書き込み先（astro-blog リポジトリ）への GitHub Personal Access Token（contents: write 権限）
+GITHUB_TOKEN="ghp_xxx"
+GITHUB_OWNER="keisuke-yamauch1"
+GITHUB_REPO="astro-blog"
+
+# 認証: Cloudflare Access で許可するメールアドレス（カンマ区切り）
+ALLOWED_EMAILS="kechiiiiin@gmail.com"
+
+# ローカル開発で認証をバイパスする（本番では絶対に設定しない）
+DEV_BYPASS_AUTH="true"

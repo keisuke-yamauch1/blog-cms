@@ -1,0 +1,14 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import PostForm from '../../components/PostForm';
+import { CONTENT_TYPES, isContentType } from '../../lib/content-types';
+
+const { type } = Astro.params;
+if (!isContentType(type)) return Astro.redirect('/');
+const label = CONTENT_TYPES[type].label;
+---
+
+<Layout title={`新規 ${label} — blog-cms`}>
+  <h1>新規 {label}</h1>
+  <PostForm client:load type={type} initial={{}} isNew={true} />
+</Layout>
