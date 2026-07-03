@@ -25,17 +25,21 @@ const fmt = (d: Date) => (isNaN(d.getTime()) ? '-' : d.toISOString().slice(0, 10
 ---
 
 <Layout title="記事一覧 — blog-cms">
-  <div class="toolbar">
-    <span class="toolbar-label">新規作成</span>
-    {types.map((t) => (
-      <a href={`/new/${t}`}><button>+ {CONTENT_TYPES[t].label}</button></a>
-    ))}
+  <div class="head">
+    <div class="tabs" role="tablist">
+      {groups.map((g, i) => (
+        <button class="tab" data-type={g.type} aria-selected={i === 0}>
+          {g.label}<span class="count">{g.posts.length}</span>
+        </button>
+      ))}
+    </div>
+    <a id="new-link" class="new-btn" href={`/new/${types[0]}`}>＋ 新規作成</a>
   </div>
 
-  {error && <p style="color:#ef4444">⚠️ {error}</p>}
-  {groups.map((g) => (
-    <section class="group">
-      <h2>{g.label} <span class="count">{g.posts.length}</span></h2>
+  {error && <p class="error">⚠️ {error}</p>}
+
+  {groups.map((g, i) => (
+    <section class="panel" data-type={g.type} hidden={i !== 0}>
       {g.posts.length === 0 ? (
         <p class="empty">記事なし</p>
       ) : (
@@ -54,23 +58,45 @@ const fmt = (d: Date) => (isNaN(d.getTime()) ? '-' : d.toISOString().slice(0, 10
   ))}
 
   <style>
-    .toolbar {
-      display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
-      padding-bottom: 1.25rem; margin-bottom: 1.5rem;
-      border-bottom: 1px solid #8883;
+    .head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
     }
-    .toolbar-label { font-size: 0.8rem; opacity: 0.55; margin-right: 0.25rem; }
-    .group { margin-bottom: 2.5rem; }
-    .group h2 {
-      display: flex; align-items: baseline; gap: 0.5rem;
-      font-size: 1.15rem; margin: 0 0 0.75rem;
+    /* セグメント型タブ */
+    .tabs {
+      display: inline-flex; gap: 0.15rem; padding: 0.2rem;
+      background: #8881; border-radius: 10px;
     }
-    .count {
-      font-size: 0.75rem; font-weight: 500; opacity: 0.5;
+    .tab {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.4rem 0.85rem; border: none; border-radius: 8px;
+      background: transparent; color: inherit; cursor: pointer;
+      font-size: 0.9rem; font-weight: 600; line-height: 1;
+      transition: background 0.12s, color 0.12s;
+    }
+    .tab:hover { background: #8882; }
+    .tab[aria-selected='true'] {
+      background: var(--panel-bg, #fff); color: #2563eb;
+      box-shadow: 0 1px 3px #0000001f;
+    }
+    .tab .count {
+      font-size: 0.72rem; font-weight: 600; opacity: 0.55;
       font-variant-numeric: tabular-nums;
     }
-    .empty { opacity: 0.5; font-size: 0.9rem; }
-    .post-list { list-style: none; padding: 0; margin: 0; }
+    /* 主役ボタン */
+    .new-btn {
+      display: inline-flex; align-items: center;
+      padding: 0.5rem 1rem; border-radius: 9px;
+      background: #2563eb; color: #fff; text-decoration: none;
+      font-size: 0.9rem; font-weight: 600; line-height: 1;
+      box-shadow: 0 1px 2px #2563eb55; transition: background 0.12s, transform 0.05s;
+    }
+    .new-btn:hover { background: #1d4ed8; }
+    .new-btn:active { transform: translateY(1px); }
+
+    .error { color: #ef4444; }
+    .empty { opacity: 0.5; font-size: 0.9rem; padding: 0.5rem 0.6rem; }
+    .post-list { display: flex; flex-direction: column; }
     .row {
       display: flex; align-items: center; gap: 0.9rem;
       padding: 0.55rem 0.6rem; border-radius: 8px;
@@ -86,12 +112,32 @@ const fmt = (d: Date) => (isNaN(d.getTime()) ? '-' : d.toISOString().slice(0, 10
       flex: 1; min-width: 0; font-weight: 500;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .row:hover .title { color: #3b82f6; }
+    .row:hover .title { color: #2563eb; }
     .badge {
       flex: none; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.02em;
       padding: 0.12rem 0.4rem; border-radius: 999px; line-height: 1.4;
     }
     .badge-html { border: 1px solid #f59e0b7a; color: #b45309; }
     .badge-draft { border: 1px solid #8886; opacity: 0.65; }
+
+    @media (prefers-color-scheme: dark) {
+      .tab[aria-selected='true'] { background: #ffffff14; color: #93c5fd; }
+    }
   </style>
+
+  <script>
+    const tabs = document.querySelectorAll<HTMLButtonElement>('.tab');
+    const panels = document.querySelectorAll<HTMLElement>('.panel');
+    const newLink = document.getElementById('new-link') as HTMLAnchorElement | null;
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const type = tab.dataset.type;
+        tabs.forEach((t) => t.setAttribute('aria-selected', String(t === tab)));
+        panels.forEach((p) => {
+          p.hidden = p.dataset.type !== type;
+        });
+        if (newLink && type) newLink.href = `/new/${type}`;
+      });
+    });
+  </script>
 </Layout>
