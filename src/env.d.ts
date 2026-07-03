@@ -7,6 +7,9 @@ interface Env {
   GITHUB_REPO: string;
   ALLOWED_EMAILS?: string;
   DEV_BYPASS_AUTH?: string;
+  // Cloudflare Access JWT 検証用
+  CF_ACCESS_TEAM_DOMAIN?: string; // 例: https://kechiiiiin.cloudflareaccess.com
+  CF_ACCESS_AUD?: string;         // Access アプリの Application Audience (AUD) tag
 }
 
 type Runtime = import('@astrojs/cloudflare').Runtime<Env>;

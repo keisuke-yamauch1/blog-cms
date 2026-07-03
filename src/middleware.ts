@@ -1,10 +1,14 @@
 import { defineMiddleware } from 'astro:middleware';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 
-// 認証は Cloudflare Access を前提にする。
-// Access を通過したリクエストには以下のヘッダが付与される:
-//   Cf-Access-Authenticated-User-Email … 認証済みメール
-// blog-cms は Access の背後に置く前提で、ここではメールの allowlist だけ確認する。
-// （厳密には Cf-Access-Jwt-Assertion の署名検証を足すとより堅牢。TODO）
+// Cloudflare Access の JWT を公開鍵（JWKS）で署名検証する。
+// Access はリクエストに Cf-Access-Jwt-Assertion ヘッダで JWT を付与する。
+// （旧実装は Cf-Access-Authenticated-User-Email ヘッダを信用していたが、
+//  Pages を Access 背後に置くとこのヘッダは付かず JWT のみ届く。かつ署名検証の方が堅牢。）
+// 検証内容: 署名・iss・aud・有効期限（jose 既定）→ その上で email allowlist。
+
+// JWKS はモジュールスコープでキャッシュ（jose が内部で cooldown 管理する）
+let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const { locals, request } = context;
@@ -16,40 +20,30 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return next();
   }
 
-  const email = request.headers.get('Cf-Access-Authenticated-User-Email')?.toLowerCase();
-  const allowed = (env?.ALLOWED_EMAILS ?? '')
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-
-  if (!email || (allowed.length > 0 && !allowed.includes(email))) {
-    // --- 一時診断（切り分け用。確認後に削除する）---
-    const cfAccessHeaders: Record<string, string> = {};
-    for (const [k, v] of request.headers) {
-      if (k.toLowerCase().startsWith('cf-access')) {
-        // JWT本体は長いので存在有無だけ
-        cfAccessHeaders[k] = k.toLowerCase().includes('jwt') ? `present(len=${v.length})` : v;
-      }
-    }
-    return new Response(
-      JSON.stringify(
-        {
-          reason: !email ? 'email-header-missing' : 'email-not-in-allowlist',
-          parsedEmail: email ?? null,
-          allowedCount: allowed.length,
-          allowedList: allowed,
-          envPresent: Boolean(env),
-          allowedEmailsRawSet: typeof env?.ALLOWED_EMAILS === 'string',
-          cfAccessHeaders,
-        },
-        null,
-        2,
-      ),
-      { status: 401, headers: { 'Content-Type': 'application/json' } },
-    );
-    // --- 一時診断ここまで ---
+  const token = request.headers.get('Cf-Access-Jwt-Assertion');
+  if (!token || !env?.CF_ACCESS_TEAM_DOMAIN || !env?.CF_ACCESS_AUD) {
+    return new Response('Unauthorized', { status: 401 });
   }
 
-  locals.user = { email };
-  return next();
+  try {
+    jwks ??= createRemoteJWKSet(new URL(`${env.CF_ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`));
+    const { payload } = await jwtVerify(token, jwks, {
+      issuer: env.CF_ACCESS_TEAM_DOMAIN,
+      audience: env.CF_ACCESS_AUD,
+    });
+    const email = String(payload.email ?? '').toLowerCase();
+
+    const allowed = (env.ALLOWED_EMAILS ?? '')
+      .split(',')
+      .map((e: string) => e.trim().toLowerCase())
+      .filter(Boolean);
+    if (!email || (allowed.length > 0 && !allowed.includes(email))) {
+      return new Response('Forbidden', { status: 403 });
+    }
+
+    locals.user = { email };
+    return next();
+  } catch {
+    return new Response('Unauthorized', { status: 401 });
+  }
 });
