@@ -2,7 +2,7 @@ import { Octokit } from 'octokit';
 import matter from 'gray-matter';
 import { CONTENT_TYPES, filePathFor, type ContentType } from '../lib/content-types';
 import type { Post, PostMeta } from '../lib/schema';
-import type { AdapterEnv, StorageAdapter } from './types';
+import type { AdapterEnv, ListResult, StorageAdapter } from './types';
 
 // astro-blog リポジトリの Markdown を GitHub Contents API で読み書きする案C実装。
 // 元 astro-blog の src/lib/github-client.ts を移植・整理したもの。
@@ -78,47 +78,70 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
   }
 
   return {
-    async list(type: ContentType): Promise<PostMeta[]> {
+    async list(type: ContentType, opts?: { limit?: number }): Promise<ListResult> {
       const dir = CONTENT_TYPES[type].dir;
-      // GraphQL で「ディレクトリ内の全 .md の本文」を1リクエストで取得する。
-      // REST の「ファイルごと getContent」だと記事数ぶん subrequest が発生し、
-      // Cloudflare Workers の subrequest 上限（50/invocation）を超えて失敗する。
-      const query = `
+
+      // 1) ファイル名だけを軽量取得（本文を引かないので数KB）。
+      //    REST の「ファイルごと getContent」は subrequest 上限に当たり、
+      //    Tree で本文まで引くと全記事の本文（diary で約450KB）を毎回転送してしまう。
+      const namesQuery = `
         query ($owner: String!, $repo: String!, $expr: String!) {
           repository(owner: $owner, name: $repo) {
             object(expression: $expr) {
-              ... on Tree {
-                entries {
-                  name
-                  type
-                  object { ... on Blob { text } }
-                }
-              }
+              ... on Tree { entries { name type } }
             }
           }
         }`;
-      let tree: any;
+      let entries: any[];
       try {
-        const res: any = await octokit.graphql(query, { owner, repo, expr: `${BRANCH}:${dir}` });
-        tree = res?.repository?.object;
+        const res: any = await octokit.graphql(namesQuery, { owner, repo, expr: `${BRANCH}:${dir}` });
+        entries = res?.repository?.object?.entries ?? null;
       } catch (error: any) {
         throw toError(error, `一覧取得失敗: ${dir}`);
       }
-      if (!tree?.entries) return []; // ディレクトリ未作成
+      if (!entries) return { posts: [], total: 0 }; // ディレクトリ未作成
 
-      const metas: PostMeta[] = tree.entries
-        .filter((e: any) => e.type === 'blob' && e.name.endsWith('.md') && typeof e.object?.text === 'string')
-        .map((e: any): PostMeta => {
-          const { data } = matter(e.object.text);
+      let names: string[] = entries
+        .filter((e) => e.type === 'blob' && e.name.endsWith('.md'))
+        .map((e) => e.name);
+      const total = names.length;
+
+      // ファイル名降順。diary はファイル名が日付(YYYY-MM-DD)なので日付降順＝最近順になる。
+      // blog/emonicle はファイル名が contentId だが件数が少なく limit で切れないため順は問わない。
+      names.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+      const picked = typeof opts?.limit === 'number' ? names.slice(0, opts.limit) : names;
+      if (picked.length === 0) return { posts: [], total };
+
+      // 2) 選んだファイルの本文だけをエイリアスで1リクエスト取得。
+      const aliases = picked
+        .map((name, i) => `f${i}: object(expression: "${BRANCH}:${dir}/${name}") { ... on Blob { text } }`)
+        .join('\n');
+      const contentQuery = `query ($owner: String!, $repo: String!) { repository(owner: $owner, name: $repo) { ${aliases} } }`;
+      let repoObj: Record<string, any>;
+      try {
+        const res: any = await octokit.graphql(contentQuery, { owner, repo });
+        repoObj = res?.repository ?? {};
+      } catch (error: any) {
+        throw toError(error, `一覧本文取得失敗: ${dir}`);
+      }
+
+      const metas: PostMeta[] = picked
+        .map((name, i): PostMeta | null => {
+          const text = repoObj[`f${i}`]?.text;
+          if (typeof text !== 'string') return null;
+          const { data } = matter(text);
           return {
-            id: e.name.replace(/\.md$/, ''),
-            title: String(data.title ?? e.name),
+            id: name.replace(/\.md$/, ''),
+            title: String(data.title ?? name),
             pubDate: data.pubDate ? new Date(data.pubDate) : new Date(0),
             draft: Boolean(data.draft ?? false),
             format: data.format === 'html' ? 'html' : 'md',
           };
-        });
-      return metas.sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime());
+        })
+        .filter((m): m is PostMeta => m !== null);
+
+      metas.sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime());
+      return { posts: metas, total };
     },
 
     async get(type: ContentType, id: string): Promise<Post | null> {

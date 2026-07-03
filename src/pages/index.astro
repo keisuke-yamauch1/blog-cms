@@ -6,16 +6,16 @@ import type { PostMeta } from '../lib/schema';
 
 const adapter = getAdapter(Astro.locals);
 const types = contentTypeList();
+const LIST_LIMIT = 50; // 一覧で本文取得するのは最近この件数まで（軽量化）
 
-let groups: { type: string; label: string; posts: PostMeta[] }[] = [];
+let groups: { type: string; label: string; posts: PostMeta[]; total: number }[] = [];
 let error: string | null = null;
 try {
   groups = await Promise.all(
-    types.map(async (type) => ({
-      type,
-      label: CONTENT_TYPES[type].label,
-      posts: await adapter.list(type),
-    }))
+    types.map(async (type) => {
+      const { posts, total } = await adapter.list(type, { limit: LIST_LIMIT });
+      return { type, label: CONTENT_TYPES[type].label, posts, total };
+    })
   );
 } catch (e: any) {
   error = e.message ?? String(e);
@@ -29,7 +29,7 @@ const fmt = (d: Date) => (isNaN(d.getTime()) ? '-' : d.toISOString().slice(0, 10
     <div class="tabs" role="tablist">
       {groups.map((g, i) => (
         <button class="tab" data-type={g.type} aria-selected={i === 0}>
-          {g.label}<span class="count">{g.posts.length}</span>
+          {g.label}<span class="count">{g.total}</span>
         </button>
       ))}
     </div>
@@ -52,6 +52,9 @@ const fmt = (d: Date) => (isNaN(d.getTime()) ? '-' : d.toISOString().slice(0, 10
               {p.draft && <span class="badge badge-draft">下書き</span>}
             </a>
           ))}
+          {g.total > g.posts.length && (
+            <p class="more-note">最新 {g.posts.length} 件を表示中（全 {g.total} 件）</p>
+          )}
         </div>
       )}
     </section>
@@ -96,6 +99,7 @@ const fmt = (d: Date) => (isNaN(d.getTime()) ? '-' : d.toISOString().slice(0, 10
 
     .error { color: #ef4444; }
     .empty { opacity: 0.5; font-size: 0.9rem; padding: 0.5rem 0.6rem; }
+    .more-note { opacity: 0.45; font-size: 0.78rem; padding: 0.8rem 0.6rem 0; }
     .post-list { display: flex; flex-direction: column; }
     .row {
       display: flex; align-items: center; gap: 0.9rem;

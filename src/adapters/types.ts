@@ -7,8 +7,14 @@ import type { Post, PostMeta } from '../lib/schema';
 // 将来 D1Adapter を1枚足してファクトリを差し替えれば案Bに移行できる。
 // UI・認証・スキーマは無改修。
 
+export interface ListResult {
+  posts: PostMeta[]; // 表示するぶん（新しい順）
+  total: number; // ディレクトリ内の総件数（limit で絞る前）
+}
+
 export interface StorageAdapter {
-  list(type: ContentType): Promise<PostMeta[]>;
+  // limit を渡すと本文取得を最近 limit 件に絞る（一覧の軽量化）。
+  list(type: ContentType, opts?: { limit?: number }): Promise<ListResult>;
   get(type: ContentType, id: string): Promise<Post | null>;
   save(type: ContentType, post: Post): Promise<void>;
   delete(type: ContentType, id: string): Promise<void>;
