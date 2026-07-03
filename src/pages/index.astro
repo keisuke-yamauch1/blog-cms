@@ -25,27 +25,73 @@ const fmt = (d: Date) => (isNaN(d.getTime()) ? '-' : d.toISOString().slice(0, 10
 ---
 
 <Layout title="記事一覧 — blog-cms">
+  <div class="toolbar">
+    <span class="toolbar-label">新規作成</span>
+    {types.map((t) => (
+      <a href={`/new/${t}`}><button>+ {CONTENT_TYPES[t].label}</button></a>
+    ))}
+  </div>
+
   {error && <p style="color:#ef4444">⚠️ {error}</p>}
   {groups.map((g) => (
-    <section style="margin-bottom:2rem">
-      <h2 style="display:flex;align-items:center;gap:0.75rem">
-        {g.label}
-        <a href={`/new/${g.type}`}><button class="secondary">+ 新規</button></a>
-      </h2>
+    <section class="group">
+      <h2>{g.label} <span class="count">{g.posts.length}</span></h2>
       {g.posts.length === 0 ? (
-        <p style="opacity:0.6">記事なし</p>
+        <p class="empty">記事なし</p>
       ) : (
-        <ul style="list-style:none;padding:0;margin:0">
+        <div class="post-list">
           {g.posts.map((p) => (
-            <li style="display:flex;gap:0.75rem;padding:0.4rem 0;border-bottom:1px solid #8882">
-              <span style="opacity:0.5;font-variant-numeric:tabular-nums">{fmt(p.pubDate)}</span>
-              <a href={`/edit/${g.type}/${p.id}`} style="flex:1">{p.title}</a>
-              {p.format === 'html' && <span style="font-size:0.65rem;padding:0.05rem 0.35rem;border:1px solid #f59e0b;color:#b45309;border-radius:3px">HTML</span>}
-              {p.draft && <span style="font-size:0.7rem;opacity:0.6">下書き</span>}
-            </li>
+            <a href={`/edit/${g.type}/${p.id}`} class="row">
+              <span class="date">{fmt(p.pubDate)}</span>
+              <span class="title">{p.title}</span>
+              {p.format === 'html' && <span class="badge badge-html">HTML</span>}
+              {p.draft && <span class="badge badge-draft">下書き</span>}
+            </a>
           ))}
-        </ul>
+        </div>
       )}
     </section>
   ))}
+
+  <style>
+    .toolbar {
+      display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+      padding-bottom: 1.25rem; margin-bottom: 1.5rem;
+      border-bottom: 1px solid #8883;
+    }
+    .toolbar-label { font-size: 0.8rem; opacity: 0.55; margin-right: 0.25rem; }
+    .group { margin-bottom: 2.5rem; }
+    .group h2 {
+      display: flex; align-items: baseline; gap: 0.5rem;
+      font-size: 1.15rem; margin: 0 0 0.75rem;
+    }
+    .count {
+      font-size: 0.75rem; font-weight: 500; opacity: 0.5;
+      font-variant-numeric: tabular-nums;
+    }
+    .empty { opacity: 0.5; font-size: 0.9rem; }
+    .post-list { list-style: none; padding: 0; margin: 0; }
+    .row {
+      display: flex; align-items: center; gap: 0.9rem;
+      padding: 0.55rem 0.6rem; border-radius: 8px;
+      text-decoration: none; color: inherit;
+      border-bottom: 1px solid #8881;
+    }
+    .row:hover { background: #8881; }
+    .date {
+      flex: none; width: 5.7rem; font-size: 0.8rem; opacity: 0.5;
+      font-variant-numeric: tabular-nums;
+    }
+    .title {
+      flex: 1; min-width: 0; font-weight: 500;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .row:hover .title { color: #3b82f6; }
+    .badge {
+      flex: none; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.02em;
+      padding: 0.12rem 0.4rem; border-radius: 999px; line-height: 1.4;
+    }
+    .badge-html { border: 1px solid #f59e0b7a; color: #b45309; }
+    .badge-draft { border: 1px solid #8886; opacity: 0.65; }
+  </style>
 </Layout>
