@@ -21,7 +21,10 @@ try {
   error = e.message ?? String(e);
 }
 
-const fmt = (d: Date) => (isNaN(d.getTime()) ? '-' : d.toISOString().slice(0, 10));
+const fmt = (d: Date | string) => {
+  const dt = d instanceof Date ? d : new Date(d);
+  return isNaN(dt.getTime()) ? '-' : dt.toISOString().slice(0, 10);
+};
 ---
 
 <Layout title="記事一覧 — blog-cms">
