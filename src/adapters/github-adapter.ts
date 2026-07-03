@@ -80,20 +80,36 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
   return {
     async list(type: ContentType): Promise<PostMeta[]> {
       const dir = CONTENT_TYPES[type].dir;
-      let entries: any[];
+      // GraphQL で「ディレクトリ内の全 .md の本文」を1リクエストで取得する。
+      // REST の「ファイルごと getContent」だと記事数ぶん subrequest が発生し、
+      // Cloudflare Workers の subrequest 上限（50/invocation）を超えて失敗する。
+      const query = `
+        query ($owner: String!, $repo: String!, $expr: String!) {
+          repository(owner: $owner, name: $repo) {
+            object(expression: $expr) {
+              ... on Tree {
+                entries {
+                  name
+                  type
+                  object { ... on Blob { text } }
+                }
+              }
+            }
+          }
+        }`;
+      let tree: any;
       try {
-        const { data } = await octokit.rest.repos.getContent({ owner, repo, path: dir, ref: BRANCH });
-        entries = Array.isArray(data) ? data : [];
+        const res: any = await octokit.graphql(query, { owner, repo, expr: `${BRANCH}:${dir}` });
+        tree = res?.repository?.object;
       } catch (error: any) {
-        if (error.status === 404) return []; // ディレクトリ未作成
         throw toError(error, `一覧取得失敗: ${dir}`);
       }
-      const mdFiles = entries.filter((e) => e.type === 'file' && e.name.endsWith('.md'));
-      const metas = await Promise.all(
-        mdFiles.map(async (e): Promise<PostMeta | null> => {
-          const file = await readFile(e.path);
-          if (!file) return null;
-          const { data } = matter(file.content);
+      if (!tree?.entries) return []; // ディレクトリ未作成
+
+      const metas: PostMeta[] = tree.entries
+        .filter((e: any) => e.type === 'blob' && e.name.endsWith('.md') && typeof e.object?.text === 'string')
+        .map((e: any): PostMeta => {
+          const { data } = matter(e.object.text);
           return {
             id: e.name.replace(/\.md$/, ''),
             title: String(data.title ?? e.name),
@@ -101,11 +117,8 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
             draft: Boolean(data.draft ?? false),
             format: data.format === 'html' ? 'html' : 'md',
           };
-        })
-      );
-      return metas
-        .filter((m): m is PostMeta => m !== null)
-        .sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime());
+        });
+      return metas.sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime());
     },
 
     async get(type: ContentType, id: string): Promise<Post | null> {
