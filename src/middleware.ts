@@ -23,7 +23,31 @@ export const onRequest = defineMiddleware(async (context, next) => {
     .filter(Boolean);
 
   if (!email || (allowed.length > 0 && !allowed.includes(email))) {
-    return new Response('Unauthorized', { status: 401 });
+    // --- 一時診断（切り分け用。確認後に削除する）---
+    const cfAccessHeaders: Record<string, string> = {};
+    for (const [k, v] of request.headers) {
+      if (k.toLowerCase().startsWith('cf-access')) {
+        // JWT本体は長いので存在有無だけ
+        cfAccessHeaders[k] = k.toLowerCase().includes('jwt') ? `present(len=${v.length})` : v;
+      }
+    }
+    return new Response(
+      JSON.stringify(
+        {
+          reason: !email ? 'email-header-missing' : 'email-not-in-allowlist',
+          parsedEmail: email ?? null,
+          allowedCount: allowed.length,
+          allowedList: allowed,
+          envPresent: Boolean(env),
+          allowedEmailsRawSet: typeof env?.ALLOWED_EMAILS === 'string',
+          cfAccessHeaders,
+        },
+        null,
+        2,
+      ),
+      { status: 401, headers: { 'Content-Type': 'application/json' } },
+    );
+    // --- 一時診断ここまで ---
   }
 
   locals.user = { email };
