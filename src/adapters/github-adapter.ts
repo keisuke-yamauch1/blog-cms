@@ -58,6 +58,7 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
       pubDate: data.pubDate ? new Date(data.pubDate) : new Date(),
       draft: Boolean(data.draft ?? false),
       heroImage: data.heroImage,
+      format: data.format === 'html' ? 'html' : 'md',
       body: content.trimStart(),
     };
   }
@@ -71,6 +72,8 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
     };
     if (post.description) fm.description = post.description;
     if (post.heroImage) fm.heroImage = post.heroImage;
+    // html は microCMS 移行分の印。md 記事の frontmatter は汚さない（既定 md は書かない）。
+    if (post.format === 'html') fm.format = 'html';
     return matter.stringify(post.body ?? '', fm);
   }
 
@@ -96,6 +99,7 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
             title: String(data.title ?? e.name),
             pubDate: data.pubDate ? new Date(data.pubDate) : new Date(0),
             draft: Boolean(data.draft ?? false),
+            format: data.format === 'html' ? 'html' : 'md',
           };
         })
       );

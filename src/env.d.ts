@@ -10,6 +10,8 @@ interface Env {
   // Cloudflare Access JWT 検証用
   CF_ACCESS_TEAM_DOMAIN?: string; // 例: https://kechiiiiin.cloudflareaccess.com
   CF_ACCESS_AUD?: string;         // Access アプリの Application Audience (AUD) tag
+  // R2 バケット（画像アップロード先・images.kechiiiiin.com）
+  IMAGES?: R2Bucket;
 }
 
 type Runtime = import('@astrojs/cloudflare').Runtime<Env>;

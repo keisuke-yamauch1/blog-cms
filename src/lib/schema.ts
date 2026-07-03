@@ -13,6 +13,8 @@ const baseSchema = z.object({
   pubDate: z.coerce.date(),
   draft: z.boolean().default(false),
   heroImage: z.string().optional(), // R2 などにアップした画像URL
+  // md = 通常の Markdown 記事 / html = microCMS 移行分（生HTML本文・WYSIWYG編集対象外）
+  format: z.enum(['md', 'html']).default('md'),
 });
 
 // タイプごとに差があれば extend する。今は共通。
@@ -37,6 +39,7 @@ export interface PostMeta {
   title: string;
   pubDate: Date;
   draft: boolean;
+  format: 'md' | 'html'; // 一覧で「HTML」バッジを出すため
 }
 
 // 受け取った生データを検証して Frontmatter にする

@@ -8,7 +8,11 @@ export const prerender = false;
 
 export const POST: APIRoute = async (context) => {
   try {
-    const { type, post } = (await context.request.json()) as { type: unknown; post: any };
+    const { type, post, isNew } = (await context.request.json()) as {
+      type: unknown;
+      post: any;
+      isNew?: boolean;
+    };
     if (!isContentType(type)) return json({ error: '不正なコンテンツタイプ' }, 400);
     if (!post?.id || typeof post.id !== 'string') return json({ error: 'id（スラッグ）は必須です' }, 400);
 
@@ -20,10 +24,18 @@ export const POST: APIRoute = async (context) => {
       pubDate: post.pubDate,
       draft: post.draft,
       heroImage: post.heroImage,
+      format: post.format,
     });
 
     const full: Post = { ...fm, id: post.id, body: String(post.body ?? '') };
     const adapter = getAdapterFromContext(context);
+
+    // 新規作成時は既存 id を上書きしない（要件G）
+    if (isNew) {
+      const existing = await adapter.get(type, full.id);
+      if (existing) return json({ error: `id「${full.id}」は既に存在します` }, 409);
+    }
+
     await adapter.save(type, full);
     return json({ ok: true, id: full.id });
   } catch (e: any) {

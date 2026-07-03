@@ -5,3 +5,10 @@ pages_build_output_dir = "./dist"
 
 # Secrets（GITHUB_TOKEN など）は wrangler secret / Pages の環境変数で設定する。
 # ローカル開発では .dev.vars に書く（.gitignore 済み）。
+
+# R2: images.kechiiiiin.com の実バケット（画像アップロード先）
+# ※ Pages では wrangler.toml は参考値。ダッシュボード Settings → Functions →
+#   R2 bucket bindings に同名 IMAGES を追加するのが本体（手作業）。
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "images"

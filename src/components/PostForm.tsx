@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
 import type { ContentType } from '../lib/content-types';
+import BodyEditor from './BodyEditor';
 
 interface FormPost {
   id: string;
@@ -9,6 +10,7 @@ interface FormPost {
   pubDate: string; // yyyy-MM-ddTHH:mm
   draft: boolean;
   heroImage?: string;
+  format?: 'md' | 'html';
   body: string;
 }
 
@@ -34,7 +36,38 @@ export default function PostForm({ type, initial, isNew }: Props) {
   const [heroImage, setHeroImage] = useState(initial.heroImage ?? '');
   const [body, setBody] = useState(initial.body ?? '');
   const [saving, setSaving] = useState(false);
+  const [uploadingHero, setUploadingHero] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  // 移行分（microCMS の生HTML）は WYSIWYG に食わせず textarea で編集する
+  const format: 'md' | 'html' = initial.format ?? 'md';
+  const isHtml = format === 'html';
+
+  // diary は1日1本。id は公開日(JST wall-clock)から自動生成し、スラッグ欄は隠す。
+  const isDiary = type === 'diary';
+  const effectiveId = isDiary ? pubDate.slice(0, 10) : id;
+
+  async function onHeroUpload(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    setUploadingHero(true);
+    setMessage(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('type', type);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'アップロードに失敗しました');
+      setHeroImage(data.url);
+    } catch (err: any) {
+      setMessage(`⚠️ ${err.message}`);
+    } finally {
+      setUploadingHero(false);
+      input.value = '';
+    }
+  }
 
   async function onSubmit(e: Event) {
     e.preventDefault();
@@ -46,14 +79,16 @@ export default function PostForm({ type, initial, isNew }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type,
+          isNew,
           post: {
-            id,
+            id: effectiveId,
             title,
             description: description || undefined,
             tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
             pubDate: new Date(pubDate).toISOString(),
             draft,
             heroImage: heroImage || undefined,
+            format,
             body,
           },
         }),
@@ -61,7 +96,7 @@ export default function PostForm({ type, initial, isNew }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? '保存に失敗しました');
       setMessage('✅ 保存しました（astro-blog に commit 済み）');
-      if (isNew) setTimeout(() => (location.href = `/edit/${type}/${id}`), 600);
+      if (isNew) setTimeout(() => (location.href = `/edit/${type}/${effectiveId}`), 600);
     } catch (err: any) {
       setMessage(`⚠️ ${err.message}`);
     } finally {
@@ -71,14 +106,23 @@ export default function PostForm({ type, initial, isNew }: Props) {
 
   return (
     <form onSubmit={onSubmit}>
-      <label>スラッグ（ファイル名 id）</label>
-      <input
-        value={id}
-        disabled={!isNew}
-        required
-        placeholder="例: my-first-post"
-        onInput={(e) => setId((e.target as HTMLInputElement).value)}
-      />
+      {isDiary ? (
+        <>
+          <label>スラッグ（公開日から自動・1日1本）</label>
+          <input value={effectiveId} disabled />
+        </>
+      ) : (
+        <>
+          <label>スラッグ（ファイル名 id）</label>
+          <input
+            value={id}
+            disabled={!isNew}
+            required
+            placeholder="例: my-first-post"
+            onInput={(e) => setId((e.target as HTMLInputElement).value)}
+          />
+        </>
+      )}
 
       <label>タイトル</label>
       <input value={title} required onInput={(e) => setTitle((e.target as HTMLInputElement).value)} />
@@ -93,7 +137,31 @@ export default function PostForm({ type, initial, isNew }: Props) {
       <input type="datetime-local" value={pubDate} onInput={(e) => setPubDate((e.target as HTMLInputElement).value)} />
 
       <label>ヒーロー画像URL（任意・R2など）</label>
-      <input value={heroImage} onInput={(e) => setHeroImage((e.target as HTMLInputElement).value)} />
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <input
+          value={heroImage}
+          style={{ flex: 1 }}
+          placeholder="https://images.kechiiiiin.com/..."
+          onInput={(e) => setHeroImage((e.target as HTMLInputElement).value)}
+        />
+        <label style={{ margin: 0, whiteSpace: 'nowrap', cursor: 'pointer' }}>
+          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={onHeroUpload} />
+          <span
+            style={{
+              display: 'inline-block',
+              padding: '0.4rem 0.75rem',
+              border: '1px solid #8886',
+              borderRadius: '4px',
+              fontSize: '0.85rem',
+            }}
+          >
+            {uploadingHero ? 'アップ中…' : '画像を選択'}
+          </span>
+        </label>
+      </div>
+      {heroImage && (
+        <img src={heroImage} alt="" style={{ maxHeight: '120px', marginTop: '0.4rem', borderRadius: '4px' }} />
+      )}
 
       <label>
         <input
@@ -105,8 +173,20 @@ export default function PostForm({ type, initial, isNew }: Props) {
         下書き（draft）
       </label>
 
-      <label>本文（Markdown）</label>
-      <textarea value={body} onInput={(e) => setBody((e.target as HTMLTextAreaElement).value)} />
+      {isHtml ? (
+        <>
+          <label>本文（HTML・microCMS移行記事）</label>
+          <p style={{ fontSize: '0.85rem', color: '#b45309', margin: '0 0 0.4rem' }}>
+            ⚠️ microCMS 移行記事です。HTML のまま編集されます（WYSIWYG では開きません）。
+          </p>
+          <textarea value={body} onInput={(e) => setBody((e.target as HTMLTextAreaElement).value)} />
+        </>
+      ) : (
+        <>
+          <label>本文（画像は D&D でアップロードできます）</label>
+          <BodyEditor initialValue={body} contentType={type} onChange={setBody} />
+        </>
+      )}
 
       <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
         <button type="submit" disabled={saving}>{saving ? '保存中…' : '保存して commit'}</button>

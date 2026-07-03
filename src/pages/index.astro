@@ -40,6 +40,7 @@ const fmt = (d: Date) => (isNaN(d.getTime()) ? '-' : d.toISOString().slice(0, 10
             <li style="display:flex;gap:0.75rem;padding:0.4rem 0;border-bottom:1px solid #8882">
               <span style="opacity:0.5;font-variant-numeric:tabular-nums">{fmt(p.pubDate)}</span>
               <a href={`/edit/${g.type}/${p.id}`} style="flex:1">{p.title}</a>
+              {p.format === 'html' && <span style="font-size:0.65rem;padding:0.05rem 0.35rem;border:1px solid #f59e0b;color:#b45309;border-radius:3px">HTML</span>}
               {p.draft && <span style="font-size:0.7rem;opacity:0.6">下書き</span>}
             </li>
           ))}
