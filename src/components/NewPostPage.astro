@@ -1,0 +1,18 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PostForm from './PostForm';
+import { CONTENT_TYPES, type ContentType } from '../lib/content-types';
+
+// 新規作成ページの共通フラグメント。トップ（/ = 新規日記）と /new/[type] の
+// 両方から使い、3タイプ×2ルートで挙動が割れる事故を防ぐ。
+interface Props {
+  type: ContentType;
+}
+const { type } = Astro.props;
+const label = CONTENT_TYPES[type].label;
+---
+
+<Layout title={`新規 ${label} — blog-cms`}>
+  <h1>新規 {label}</h1>
+  <PostForm client:load type={type} initial={{}} isNew={true} />
+</Layout>

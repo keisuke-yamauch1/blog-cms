@@ -5,11 +5,11 @@ import { getAdapter } from '../../../lib/server';
 import { CONTENT_TYPES, isContentType } from '../../../lib/content-types';
 
 const { type, id } = Astro.params;
-if (!isContentType(type) || !id) return Astro.redirect('/');
+if (!isContentType(type) || !id) return Astro.redirect('/posts');
 
 const adapter = getAdapter(Astro.locals);
 const post = await adapter.get(type, id);
-if (!post) return Astro.redirect('/');
+if (!post) return Astro.redirect('/posts');
 
 const label = CONTENT_TYPES[type].label;
 

@@ -190,7 +190,7 @@ export default function PostForm({ type, initial, isNew }: Props) {
 
       <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
         <button type="submit" disabled={saving}>{saving ? '保存中…' : '保存して commit'}</button>
-        <a href="/">← 一覧へ</a>
+        <a href="/posts">← 一覧へ</a>
         {message && <span>{message}</span>}
       </div>
     </form>

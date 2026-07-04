@@ -1,0 +1,168 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getAdapter } from '../lib/server';
+import { CONTENT_TYPES, contentTypeList } from '../lib/content-types';
+import type { PostMeta } from '../lib/schema';
+
+const adapter = getAdapter(Astro.locals);
+const types = contentTypeList();
+
+let groups: { type: string; label: string; posts: PostMeta[]; total: number }[] = [];
+let error: string | null = null;
+try {
+  groups = await Promise.all(
+    types.map(async (type) => {
+      const { posts, total } = await adapter.list(type);
+      return { type, label: CONTENT_TYPES[type].label, posts, total };
+    })
+  );
+} catch (e: any) {
+  error = e.message ?? String(e);
+}
+
+const fmt = (d: Date | string) => {
+  const dt = d instanceof Date ? d : new Date(d);
+  return isNaN(dt.getTime()) ? '-' : dt.toISOString().slice(0, 10);
+};
+---
+
+<Layout title="記事一覧 — blog-cms">
+  <div class="head">
+    <div class="tabs" role="tablist">
+      {groups.map((g, i) => (
+        <button class="tab" data-type={g.type} aria-selected={i === 0}>
+          {g.label}<span class="count">{g.total}</span>
+        </button>
+      ))}
+    </div>
+    <div class="actions">
+      <form method="POST" action="/api/resync" class="resync-form">
+        <button type="submit" class="resync-btn" title="GitHub から一覧を組み直す（外部編集の取り込み）">再同期</button>
+      </form>
+      <a id="new-link" class="new-btn" href={`/new/${types[0]}`}>＋ 新規作成</a>
+    </div>
+  </div>
+
+  {error && <p class="error">⚠️ {error}</p>}
+
+  {groups.map((g, i) => (
+    <section class="panel" data-type={g.type} hidden={i !== 0}>
+      {g.posts.length === 0 ? (
+        <p class="empty">記事なし</p>
+      ) : (
+        <div class="post-list">
+          {g.posts.map((p) => (
+            <a href={`/edit/${g.type}/${p.id}`} class="row">
+              <span class="date">{fmt(p.pubDate)}</span>
+              <span class="title">{p.title}</span>
+              {p.format === 'html' && <span class="badge badge-html">HTML</span>}
+              {p.draft && <span class="badge badge-draft">下書き</span>}
+            </a>
+          ))}
+          {g.total > g.posts.length && (
+            <p class="more-note">最新 {g.posts.length} 件を表示中（全 {g.total} 件）</p>
+          )}
+        </div>
+      )}
+    </section>
+  ))}
+
+  <style>
+    .head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+    }
+    /* セグメント型タブ */
+    .tabs {
+      display: inline-flex; gap: 0.15rem; padding: 0.2rem;
+      background: #8881; border-radius: 10px;
+    }
+    .tab {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.4rem 0.85rem; border: none; border-radius: 8px;
+      background: transparent; color: inherit; cursor: pointer;
+      font-size: 0.9rem; font-weight: 600; line-height: 1;
+      transition: background 0.12s, color 0.12s;
+    }
+    .tab:hover { background: #8882; }
+    .tab[aria-selected='true'] {
+      background: var(--panel-bg, #fff); color: #2563eb;
+      box-shadow: 0 1px 3px #0000001f;
+    }
+    .tab .count {
+      font-size: 0.72rem; font-weight: 600; opacity: 0.55;
+      font-variant-numeric: tabular-nums;
+    }
+    .actions { display: inline-flex; align-items: center; gap: 0.5rem; }
+    .resync-form { margin: 0; }
+    /* 従属ボタン（外部編集の取り込み用・目立たせない） */
+    .resync-btn {
+      display: inline-flex; align-items: center;
+      padding: 0.5rem 0.85rem; border-radius: 9px;
+      background: transparent; color: inherit; cursor: pointer;
+      border: 1px solid #8884;
+      font-size: 0.85rem; font-weight: 600; line-height: 1;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .resync-btn:hover { background: #8881; border-color: #8886; }
+    .resync-btn:active { transform: translateY(1px); }
+
+    /* 主役ボタン */
+    .new-btn {
+      display: inline-flex; align-items: center;
+      padding: 0.5rem 1rem; border-radius: 9px;
+      background: #2563eb; color: #fff; text-decoration: none;
+      font-size: 0.9rem; font-weight: 600; line-height: 1;
+      box-shadow: 0 1px 2px #2563eb55; transition: background 0.12s, transform 0.05s;
+    }
+    .new-btn:hover { background: #1d4ed8; }
+    .new-btn:active { transform: translateY(1px); }
+
+    .error { color: #ef4444; }
+    .empty { opacity: 0.5; font-size: 0.9rem; padding: 0.5rem 0.6rem; }
+    .more-note { opacity: 0.45; font-size: 0.78rem; padding: 0.8rem 0.6rem 0; }
+    .post-list { display: flex; flex-direction: column; }
+    .row {
+      display: flex; align-items: center; gap: 0.9rem;
+      padding: 0.55rem 0.6rem; border-radius: 8px;
+      text-decoration: none; color: inherit;
+      border-bottom: 1px solid #8881;
+    }
+    .row:hover { background: #8881; }
+    .date {
+      flex: none; width: 5.7rem; font-size: 0.8rem; opacity: 0.5;
+      font-variant-numeric: tabular-nums;
+    }
+    .title {
+      flex: 1; min-width: 0; font-weight: 500;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .row:hover .title { color: #2563eb; }
+    .badge {
+      flex: none; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.02em;
+      padding: 0.12rem 0.4rem; border-radius: 999px; line-height: 1.4;
+    }
+    .badge-html { border: 1px solid #f59e0b7a; color: #b45309; }
+    .badge-draft { border: 1px solid #8886; opacity: 0.65; }
+
+    @media (prefers-color-scheme: dark) {
+      .tab[aria-selected='true'] { background: #ffffff14; color: #93c5fd; }
+    }
+  </style>
+
+  <script>
+    const tabs = document.querySelectorAll<HTMLButtonElement>('.tab');
+    const panels = document.querySelectorAll<HTMLElement>('.panel');
+    const newLink = document.getElementById('new-link') as HTMLAnchorElement | null;
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const type = tab.dataset.type;
+        tabs.forEach((t) => t.setAttribute('aria-selected', String(t === tab)));
+        panels.forEach((p) => {
+          p.hidden = p.dataset.type !== type;
+        });
+        if (newLink && type) newLink.href = `/new/${type}`;
+      });
+    });
+  </script>
+</Layout>

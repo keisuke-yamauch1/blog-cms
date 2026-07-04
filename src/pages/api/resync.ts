@@ -11,5 +11,5 @@ export const POST: APIRoute = async (context) => {
   if (kv) {
     await Promise.all(contentTypeList().map((t) => kv.delete(listCacheKey(t))));
   }
-  return context.redirect('/');
+  return context.redirect('/posts');
 };

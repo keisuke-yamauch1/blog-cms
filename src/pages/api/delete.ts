@@ -15,7 +15,7 @@ export const POST: APIRoute = async (context) => {
     }
     const adapter = getAdapterFromContext(context);
     await adapter.delete(type, id);
-    return context.redirect('/');
+    return context.redirect('/posts');
   } catch (e: any) {
     return new Response(`削除失敗: ${e.message ?? e}`, { status: e.statusCode ?? 500 });
   }
