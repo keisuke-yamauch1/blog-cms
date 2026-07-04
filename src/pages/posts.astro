@@ -9,16 +9,24 @@ const types = contentTypeList();
 
 let groups: { type: string; label: string; posts: PostMeta[]; total: number }[] = [];
 let error: string | null = null;
-try {
-  groups = await Promise.all(
-    types.map(async (type) => {
-      const { posts, total } = await adapter.list(type);
-      return { type, label: CONTENT_TYPES[type].label, posts, total };
-    })
-  );
-} catch (e: any) {
-  error = e.message ?? String(e);
-}
+// allSettled で1タイプの取得失敗が一覧全体を潰さないようにする
+const settled = await Promise.allSettled(
+  types.map(async (type) => {
+    const { posts, total } = await adapter.list(type);
+    return { type, label: CONTENT_TYPES[type].label, posts, total };
+  })
+);
+groups = settled.map((r, i) =>
+  r.status === 'fulfilled'
+    ? r.value
+    : { type: types[i], label: CONTENT_TYPES[types[i]].label, posts: [], total: 0 }
+);
+const failures = settled
+  .map((r, i) =>
+    r.status === 'rejected' ? `${CONTENT_TYPES[types[i]].label}: ${r.reason?.message ?? r.reason}` : null
+  )
+  .filter(Boolean);
+if (failures.length > 0) error = `一部の一覧取得に失敗しました — ${failures.join(' / ')}`;
 
 const fmt = (d: Date | string) => {
   const dt = d instanceof Date ? d : new Date(d);

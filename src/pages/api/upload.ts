@@ -13,6 +13,8 @@ const ALLOWED: Record<string, string> = {
 const MAX_BYTES = 20 * 1024 * 1024; // 20MB（ヒアリング済み）
 
 export const POST: APIRoute = async ({ request, locals }) => {
+  // middleware 通過の再確認（設定不備・除外パス追加時の防御）
+  if (!locals.user) return json({ error: 'Unauthorized' }, 401);
   const bucket = locals.runtime?.env?.IMAGES;
   if (!bucket) {
     // `npm run dev`(Vite) では R2 バインディングが無い。`wrangler pages dev` を使うこと。

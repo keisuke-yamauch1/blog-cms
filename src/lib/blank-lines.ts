@@ -18,7 +18,8 @@
  * ライブエディタ本体には適用しないこと（カーソル・IME が壊れる）。隠し変換用エディタのみに使う。
  */
 export function markBlankParagraphs(html: string): string {
-  return html.replaceAll('<p><br></p>', '<p>&nbsp;</p>');
+  // <br/> や空白入りなど出力形の揺れに耐えるよう正規表現で吸収する
+  return html.replace(/<p><br\s*\/?><\/p>/g, '<p>&nbsp;</p>');
 }
 
 /**

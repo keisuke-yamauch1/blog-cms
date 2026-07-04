@@ -58,7 +58,10 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
       title: String(data.title ?? ''),
       description: data.description,
       tags: Array.isArray(data.tags) ? data.tags : [],
-      pubDate: data.pubDate ? new Date(data.pubDate) : new Date(),
+      // pubDate 欠落時のフォールバックも JST 基準（他箇所の日付生成と同方式）
+      pubDate: data.pubDate
+        ? new Date(data.pubDate)
+        : new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' })),
       draft: Boolean(data.draft ?? false),
       heroImage: data.heroImage,
       format: data.format === 'html' ? 'html' : 'md',

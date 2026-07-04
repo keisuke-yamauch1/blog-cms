@@ -7,6 +7,8 @@ import type { Post } from '../../lib/schema';
 export const prerender = false;
 
 export const POST: APIRoute = async (context) => {
+  // middleware 通過の再確認（設定不備・除外パス追加時の防御）
+  if (!context.locals.user) return json({ error: 'Unauthorized' }, 401);
   try {
     const { type, post, isNew } = (await context.request.json()) as {
       type: unknown;

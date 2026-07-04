@@ -15,9 +15,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const env = locals.runtime?.env;
 
   // ローカル開発のバイパス（本番では DEV_BYPASS_AUTH を設定しないこと）
+  // 万一本番に誤設定されても効かないよう、localhost からのアクセスに限定する
   if (env?.DEV_BYPASS_AUTH === 'true') {
-    locals.user = { email: 'dev@localhost' };
-    return next();
+    const hostname = new URL(request.url).hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      locals.user = { email: 'dev@localhost' };
+      return next();
+    }
   }
 
   const token = request.headers.get('Cf-Access-Jwt-Assertion');
@@ -37,7 +41,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
       .split(',')
       .map((e: string) => e.trim().toLowerCase())
       .filter(Boolean);
-    if (!email || (allowed.length > 0 && !allowed.includes(email))) {
+    // allowlist 未設定は fail-closed（全員拒否）。設定漏れを裏口にしない
+    if (!email || allowed.length === 0 || !allowed.includes(email)) {
       return new Response('Forbidden', { status: 403 });
     }
 

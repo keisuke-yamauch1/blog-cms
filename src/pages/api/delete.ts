@@ -6,6 +6,8 @@ export const prerender = false;
 
 // HTML フォームからの POST（application/x-www-form-urlencoded）を受ける
 export const POST: APIRoute = async (context) => {
+  // middleware 通過の再確認（設定不備・除外パス追加時の防御）
+  if (!context.locals.user) return new Response('Unauthorized', { status: 401 });
   try {
     const form = await context.request.formData();
     const type = form.get('type');
