@@ -24,6 +24,18 @@ function decodeBase64(b64: string): string {
 
 const BRANCH = 'main';
 
+// GraphQL レスポンスの最小限の型（使うフィールドだけ定義）
+type TreeEntry = { name: string; type: string };
+type NamesQueryResult = { repository?: { object?: { entries?: TreeEntry[] } | null } | null };
+type BlobQueryResult = { repository?: Record<string, { text?: string } | null> | null };
+
+// unknown なエラーから HTTP ステータスを安全に取り出す
+function statusOf(error: unknown): number | undefined {
+  return typeof error === 'object' && error !== null && 'status' in error
+    ? (error as { status?: number }).status
+    : undefined;
+}
+
 export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
   if (!env.GITHUB_TOKEN) throw new GitHubAPIError('GITHUB_TOKEN が未設定です');
   if (!env.GITHUB_OWNER || !env.GITHUB_REPO) {
@@ -44,8 +56,8 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
         return { content: decodeBase64(data.content), sha: data.sha };
       }
       return null;
-    } catch (error: any) {
-      if (error.status === 404) return null;
+    } catch (error: unknown) {
+      if (statusOf(error) === 404) return null;
       throw toError(error, `読み込み失敗: ${path}`);
     }
   }
@@ -98,11 +110,11 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
             }
           }
         }`;
-      let entries: any[];
+      let entries: TreeEntry[] | null;
       try {
-        const res: any = await octokit.graphql(namesQuery, { owner, repo, expr: `${BRANCH}:${dir}` });
+        const res = await octokit.graphql<NamesQueryResult>(namesQuery, { owner, repo, expr: `${BRANCH}:${dir}` });
         entries = res?.repository?.object?.entries ?? null;
-      } catch (error: any) {
+      } catch (error: unknown) {
         throw toError(error, `一覧取得失敗: ${dir}`);
       }
       if (!entries) return { posts: [], total: 0 }; // ディレクトリ未作成
@@ -123,11 +135,11 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
         .map((name, i) => `f${i}: object(expression: "${BRANCH}:${dir}/${name}") { ... on Blob { text } }`)
         .join('\n');
       const contentQuery = `query ($owner: String!, $repo: String!) { repository(owner: $owner, name: $repo) { ${aliases} } }`;
-      let repoObj: Record<string, any>;
+      let repoObj: NonNullable<BlobQueryResult['repository']>;
       try {
-        const res: any = await octokit.graphql(contentQuery, { owner, repo });
+        const res = await octokit.graphql<BlobQueryResult>(contentQuery, { owner, repo });
         repoObj = res?.repository ?? {};
-      } catch (error: any) {
+      } catch (error: unknown) {
         throw toError(error, `一覧本文取得失敗: ${dir}`);
       }
 
@@ -165,7 +177,7 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
           owner, repo, path, message, content, branch: BRANCH,
           ...(existing ? { sha: existing.sha } : {}),
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         throw toError(error, `保存失敗: ${path}`);
       }
     },
@@ -178,19 +190,21 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
         await octokit.rest.repos.deleteFile({
           owner, repo, path, message: `delete(${type}): ${id}`, sha: existing.sha, branch: BRANCH,
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         throw toError(error, `削除失敗: ${path}`);
       }
     },
   };
 }
 
-function toError(error: any, fallback: string): GitHubAPIError {
+function toError(error: unknown, fallback: string): GitHubAPIError {
   if (error instanceof GitHubAPIError) return error;
-  if (error.status === 401) return new GitHubAPIError('GitHub認証が無効です', 401);
-  if (error.status === 409) return new GitHubAPIError('競合: 他で更新されています（再読み込みを）', 409);
-  if (error.status === 403 && String(error.message).includes('rate limit')) {
+  const status = statusOf(error);
+  const message = error instanceof Error ? error.message : String(error);
+  if (status === 401) return new GitHubAPIError('GitHub認証が無効です', 401);
+  if (status === 409) return new GitHubAPIError('競合: 他で更新されています（再読み込みを）', 409);
+  if (status === 403 && message.includes('rate limit')) {
     return new GitHubAPIError('GitHub APIのレート制限に達しました', 403);
   }
-  return new GitHubAPIError(`${fallback}: ${error.message ?? error}`, error.status);
+  return new GitHubAPIError(`${fallback}: ${message}`, status);
 }

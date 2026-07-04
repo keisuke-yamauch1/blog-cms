@@ -61,18 +61,26 @@ npm run dev                      # http://localhost:4321
 | `GITHUB_OWNER` | `keisuke-yamauch1` |
 | `GITHUB_REPO` | `astro-blog` |
 | `ALLOWED_EMAILS` | 入稿を許可するメール（カンマ区切り） |
-| `DEV_BYPASS_AUTH` | ローカルのみ `true`。本番では設定しない |
+| `CF_ACCESS_TEAM_DOMAIN` | Access JWT 検証用（`<team>.cloudflareaccess.com`） |
+| `CF_ACCESS_AUD` | Access アプリケーションの AUD タグ |
+| `DEV_BYPASS_AUTH` | ローカル（`.dev.vars`）のみ `true`。本番では設定しない |
 
 ## デプロイ（Cloudflare Pages）
 
 1. Pages プロジェクトを作成し本リポジトリを接続（ビルド: `npm run build`、出力: `dist`）
-2. 環境変数・Secrets を設定（上表）
-3. Cloudflare Access でアプリ全体を保護（許可メールを設定）
+2. 環境変数・Secrets を設定（上表）。R2/KV バインディングは wrangler.toml で管理（デプロイで自動反映）
+3. Cloudflare Access でアプリ全体を保護（カスタムドメインと `*.pages.dev` の両方を宛先に）
+
+## 実装済みの主な機能
+
+- Toast UI Editor による WYSIWYG/Markdown 執筆（空行保持・`---` 区切り線対応）
+- R2 画像アップロード（`/api/upload`・エディタ D&D / 写真ボタン・クライアント圧縮）
+- Access JWT の署名検証（jose・JWKS/iss/aud/exp・fail-closed）＋メール allowlist
+- KV による一覧キャッシュ（`CMS_CACHE`・真実は GitHub・再同期ボタンあり）
+- format:html 記事（microCMS 移行分）は textarea で生 HTML のまま編集
+
+astro-blog 側の microCMS → Content Collections 切替は完了済み（2026-07・全237件移行）。
 
 ## TODO / 今後
 
 - [ ] 下書きプレビュー（`/api/preview` でサーバレンダリング）
-- [ ] R2 画像アップロード UI（`/api/upload`）
-- [ ] Obsidian リンク・URL埋め込み変換の移植（astro-blog の post-creator.ts）
-- [ ] Cf-Access-Jwt-Assertion の署名検証を追加
-- [ ] astro-blog 側を microCMS → Content Collections へ切替（移行スクリプト）

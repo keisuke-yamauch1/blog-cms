@@ -10,13 +10,15 @@ export const POST: APIRoute = async (context) => {
   // middleware 通過の再確認（設定不備・除外パス追加時の防御）
   if (!context.locals.user) return json({ error: 'Unauthorized' }, 401);
   try {
-    const { type, post, isNew } = (await context.request.json()) as {
+    const { type, post: rawPost, isNew } = (await context.request.json()) as {
       type: unknown;
-      post: any;
+      post?: unknown;
       isNew?: boolean;
     };
     if (!isContentType(type)) return json({ error: '不正なコンテンツタイプ' }, 400);
-    if (!post?.id || typeof post.id !== 'string') return json({ error: 'id（スラッグ）は必須です' }, 400);
+    // 各フィールドの中身は parseFrontmatter（zod）が検証する。ここでは形だけ絞る。
+    const post = (typeof rawPost === 'object' && rawPost !== null ? rawPost : {}) as Record<string, unknown>;
+    if (!post.id || typeof post.id !== 'string') return json({ error: 'id（スラッグ）は必須です' }, 400);
 
     // Zod でメタ情報を検証
     const fm = parseFrontmatter(type, {
@@ -40,9 +42,17 @@ export const POST: APIRoute = async (context) => {
 
     await adapter.save(type, full);
     return json({ ok: true, id: full.id });
-  } catch (e: any) {
-    if (e?.name === 'ZodError') return json({ error: e.issues?.[0]?.message ?? '入力エラー' }, 400);
-    return json({ error: e.message ?? String(e) }, e.statusCode ?? 500);
+  } catch (e: unknown) {
+    if (e instanceof Error && e.name === 'ZodError') {
+      const issues = (e as { issues?: { message?: string }[] }).issues;
+      return json({ error: issues?.[0]?.message ?? '入力エラー' }, 400);
+    }
+    const message = e instanceof Error ? e.message : String(e);
+    const statusCode =
+      typeof e === 'object' && e !== null && 'statusCode' in e
+        ? ((e as { statusCode?: number }).statusCode ?? 500)
+        : 500;
+    return json({ error: message }, statusCode);
   }
 };
 
