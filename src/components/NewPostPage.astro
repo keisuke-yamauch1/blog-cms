@@ -1,7 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import PostForm from './PostForm';
-import { CONTENT_TYPES, type ContentType } from '../lib/content-types';
+import { CONTENT_TYPES, contentTypeList, type ContentType } from '../lib/content-types';
 
 // 新規作成ページの共通フラグメント。トップ（/ = 新規日記）と /new/[type] の
 // 両方から使い、3タイプ×2ルートで挙動が割れる事故を防ぐ。
@@ -10,9 +10,25 @@ interface Props {
 }
 const { type } = Astro.props;
 const label = CONTENT_TYPES[type].label;
+// 今開いているタイプ以外への切り替えリンク（日記 → blog / emonicle など）
+const otherTypes = contentTypeList().filter((t) => t !== type);
 ---
 
 <Layout title={`新規 ${label} — blog-cms`}>
-  <h1>新規 {label}</h1>
+  <div class="new-header">
+    <h1>新規 {label}</h1>
+    <nav class="type-switch">
+      {otherTypes.map((t) => <a href={`/new/${t}`}>＋ 新規 {CONTENT_TYPES[t].label}</a>)}
+    </nav>
+  </div>
   <PostForm client:load type={type} initial={{}} isNew={true} />
 </Layout>
+
+<style>
+  .new-header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap;
+  }
+  .type-switch { display: inline-flex; gap: 0.9rem; font-size: 0.85rem; }
+  .type-switch a { text-decoration: none; }
+</style>
