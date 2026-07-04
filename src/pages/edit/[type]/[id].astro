@@ -12,6 +12,19 @@ const post = await adapter.get(type, id);
 if (!post) return Astro.redirect('/');
 
 const label = CONTENT_TYPES[type].label;
+
+// 本番サイト上のこの記事のURL（下書きも noindex 隠しページとして見られる）
+const SITE = 'https://www.kechiiiiin.com';
+function previewUrl(): string {
+  if (type === 'diary') {
+    const d = new Date(new Date(post.pubDate).toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${SITE}/diary/${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+  }
+  return `${SITE}/${type}/${post.id}`;
+}
+const preview = previewUrl();
+
 const initial = {
   id: post.id,
   title: post.title,
@@ -26,7 +39,13 @@ const initial = {
 ---
 
 <Layout title={`編集: ${post.title} — blog-cms`}>
-  <h1>{label}を編集</h1>
+  <h1 style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
+    {label}を編集
+    <a href={preview} target="_blank" rel="noopener" style="font-size:0.8rem;font-weight:400">プレビューを開く ↗</a>
+  </h1>
+  <p style="font-size:0.78rem;opacity:0.5;margin:-0.5rem 0 1rem">
+    ※ 保存後、Vercel の再ビルド（1〜2分）が終わると反映されます。下書きも一覧非表示のまま URL で確認できます。
+  </p>
   <PostForm client:load type={type} initial={initial} isNew={false} />
 
   <hr style="margin:2rem 0;border:none;border-top:1px solid #8884" />
