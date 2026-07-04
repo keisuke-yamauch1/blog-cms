@@ -84,7 +84,6 @@ const fmt = (d: Date | string) => {
       font-size: 0.9rem; font-weight: 600; line-height: 1;
       transition: background 0.12s, color 0.12s;
     }
-    .tab:hover { background: #8882; }
     .tab[aria-selected='true'] {
       background: var(--panel-bg, #fff); color: #2563eb;
       box-shadow: 0 1px 3px #0000001f;
@@ -93,7 +92,7 @@ const fmt = (d: Date | string) => {
       font-size: 0.72rem; font-weight: 600; opacity: 0.55;
       font-variant-numeric: tabular-nums;
     }
-    .actions { display: inline-flex; align-items: center; gap: 0.5rem; }
+    .actions { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
     .resync-form { margin: 0; }
     /* 従属ボタン（外部編集の取り込み用・目立たせない） */
     .resync-btn {
@@ -104,7 +103,6 @@ const fmt = (d: Date | string) => {
       font-size: 0.85rem; font-weight: 600; line-height: 1;
       transition: background 0.12s, border-color 0.12s;
     }
-    .resync-btn:hover { background: #8881; border-color: #8886; }
     .resync-btn:active { transform: translateY(1px); }
 
     /* 主役ボタン */
@@ -115,7 +113,6 @@ const fmt = (d: Date | string) => {
       font-size: 0.9rem; font-weight: 600; line-height: 1;
       box-shadow: 0 1px 2px #2563eb55; transition: background 0.12s, transform 0.05s;
     }
-    .new-btn:hover { background: #1d4ed8; }
     .new-btn:active { transform: translateY(1px); }
 
     .error { color: #ef4444; }
@@ -128,7 +125,6 @@ const fmt = (d: Date | string) => {
       text-decoration: none; color: inherit;
       border-bottom: 1px solid #8881;
     }
-    .row:hover { background: #8881; }
     .date {
       flex: none; width: 5.7rem; font-size: 0.8rem; opacity: 0.5;
       font-variant-numeric: tabular-nums;
@@ -137,13 +133,31 @@ const fmt = (d: Date | string) => {
       flex: 1; min-width: 0; font-weight: 500;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .row:hover .title { color: #2563eb; }
     .badge {
       flex: none; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.02em;
       padding: 0.12rem 0.4rem; border-radius: 999px; line-height: 1.4;
     }
     .badge-html { border: 1px solid #f59e0b7a; color: #b45309; }
     .badge-draft { border: 1px solid #8886; opacity: 0.65; }
+
+    /* hover はマウス環境のみ（タッチでの hover 残留防止） */
+    @media (hover: hover) {
+      .tab:hover { background: #8882; }
+      .resync-btn:hover { background: #8881; border-color: #8886; }
+      .new-btn:hover { background: #1d4ed8; }
+      .row:hover { background: #8881; }
+      .row:hover .title { color: #2563eb; }
+    }
+
+    /* スマホ: タブ行を横スクロール化・日付列をコンパクトに */
+    @media (max-width: 640px) {
+      .tabs {
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .date { width: auto; font-size: 0.75rem; }
+    }
 
     @media (prefers-color-scheme: dark) {
       .tab[aria-selected='true'] { background: #ffffff14; color: #93c5fd; }

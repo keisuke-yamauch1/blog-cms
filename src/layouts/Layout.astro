@@ -12,6 +12,10 @@ const user = Astro.locals.user;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
+    <!-- ホーム画面追加対応（フル PWA はやらない。standalone も Access ログイン遷移が壊れるため入れない） -->
+    <meta name="theme-color" content="#1e1e1e" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="日記" />
     <title>{title}</title>
   </head>
   <body>
@@ -55,8 +59,18 @@ const user = Astro.locals.user;
       button.secondary { background: transparent; color: inherit; border: 1px solid #8886; }
       button:disabled { opacity: 0.5; cursor: default; }
       label { display: block; margin: 1rem 0 0.3rem; font-weight: 600; font-size: 0.9rem; }
-      input, textarea, select { width: 100%; }
+      /* iOS: フォーカス時の自動ズームは font-size < 16px の入力で発動する */
+      input, textarea, select { width: 100%; font-size: 16px; }
       textarea { min-height: 360px; font-family: ui-monospace, monospace; }
+
+      /* Toast UI: 挿入直後の実寸大画像がエディタ幅を突き破るのを防ぐ */
+      .toastui-editor-contents img { max-width: 100%; height: auto; }
+      .toastui-editor-defaultUI { max-width: 100%; }
+
+      @media (max-width: 640px) {
+        main { padding: 0.75rem; }
+        button, .btn { min-height: 44px; } /* Apple HIG のタップターゲット */
+      }
     </style>
   </body>
 </html>

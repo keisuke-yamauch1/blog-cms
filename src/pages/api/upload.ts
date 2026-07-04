@@ -25,7 +25,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!(file instanceof File)) return json({ error: 'file がありません' }, 400);
   if (!isContentType(type)) return json({ error: '不正なコンテンツタイプ' }, 400);
   const ext = ALLOWED[file.type];
-  if (!ext) return json({ error: `未対応の形式: ${file.type}（jpeg/png/gif/webp のみ）` }, 400);
+  if (!ext) {
+    // HEIC/HEIF は Chrome/Firefox で表示できないので R2 に置けない。写真アプリ直選択なら iOS が JPEG に変換してくれる旨を案内。
+    if (file.type === 'image/heic' || file.type === 'image/heif') {
+      return json({ error: 'HEIC形式です。写真アプリから直接選ぶと自動でJPEGになります' }, 400);
+    }
+    return json({ error: `未対応の形式: ${file.type}（jpeg/png/gif/webp のみ）` }, 400);
+  }
   if (file.size > MAX_BYTES) return json({ error: 'サイズ上限(20MB)超過' }, 400);
 
   // JST の YYYYMMDDhhmmss（r2-uploader と同じ命名）

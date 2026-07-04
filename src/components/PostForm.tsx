@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import type { ContentType } from '../lib/content-types';
 import BodyEditor from './BodyEditor';
+import { uploadImage } from '../lib/upload-client';
 
 interface FormPost {
   id: string;
@@ -54,13 +55,8 @@ export default function PostForm({ type, initial, isNew }: Props) {
     setUploadingHero(true);
     setMessage(null);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('type', type);
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'アップロードに失敗しました');
-      setHeroImage(data.url);
+      const url = await uploadImage(file, type);
+      setHeroImage(url);
     } catch (err: any) {
       setMessage(`⚠️ ${err.message}`);
     } finally {
@@ -137,7 +133,7 @@ export default function PostForm({ type, initial, isNew }: Props) {
       <input type="datetime-local" value={pubDate} onInput={(e) => setPubDate((e.target as HTMLInputElement).value)} />
 
       <label>ヒーロー画像URL（任意・R2など）</label>
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <input
           value={heroImage}
           style={{ flex: 1 }}
@@ -155,7 +151,7 @@ export default function PostForm({ type, initial, isNew }: Props) {
               fontSize: '0.85rem',
             }}
           >
-            {uploadingHero ? 'アップ中…' : '画像を選択'}
+            {uploadingHero ? 'アップ中…' : '📷 写真を選択'}
           </span>
         </label>
       </div>
@@ -188,8 +184,8 @@ export default function PostForm({ type, initial, isNew }: Props) {
         </>
       )}
 
-      <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-        <button type="submit" disabled={saving}>{saving ? '保存中…' : '保存して commit'}</button>
+      <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <button type="submit" disabled={saving} style={{ minHeight: '44px' }}>{saving ? '保存中…' : '保存して commit'}</button>
         <a href="/posts">← 一覧へ</a>
         {message && <span>{message}</span>}
       </div>
