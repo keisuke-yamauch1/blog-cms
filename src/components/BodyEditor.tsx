@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 // CSS は静的 import（Astro/Vite が確実にページに <link> する。動的だと当たらないことがある）
 import '@toast-ui/editor/dist/toastui-editor.css';
-import { unescapeUrls } from '../lib/markdown-normalize';
+import { normalizeToastMarkdown } from '../lib/markdown-normalize';
 import { markBlankParagraphs, unmarkBlankParagraphs } from '../lib/blank-lines';
 import { uploadImage } from '../lib/upload-client';
 
@@ -42,7 +42,9 @@ export default function BodyEditor({ initialValue, contentType, onChange }: Prop
           // スマホは 60vh（キーボード表示で縮む viewport 対策）、PC は従来どおり 600px
           height: isMobile ? '60vh' : '600px',
           // スマホはツールバーを1行に絞る（グループ=配列の配列で渡す。フラットだと実行時エラー）
-          toolbarItems: isMobile ? [['heading', 'bold'], ['ul', 'ol'], ['link', 'quote']] : undefined,
+          // PC はキーごと省略してデフォルトに任せる。`toolbarItems: undefined` と渡すと
+          // Toast UI の extend がデフォルト定義を undefined で上書きし、ボタンが全部消える。
+          ...(isMobile ? { toolbarItems: [['heading', 'bold'], ['ul', 'ol'], ['link', 'quote']] } : {}),
           initialValue: initialValue || '',
           usageStatistics: false,
           hooks: {
@@ -61,7 +63,7 @@ export default function BodyEditor({ initialValue, contentType, onChange }: Prop
               const html = editorRef.current.getHTML();
               if (!html.includes('<p><br></p>')) {
                 // 空行なし: 追加コストのない通常経路
-                onChange(unescapeUrls(editorRef.current.getMarkdown()));
+                onChange(normalizeToastMarkdown(editorRef.current.getMarkdown()));
                 return;
               }
               // 空行あり: 隠し変換用エディタに markBlankParagraphs した HTML を食わせて Markdown を取得する。
@@ -82,7 +84,7 @@ export default function BodyEditor({ initialValue, contentType, onChange }: Prop
                 });
               }
               hiddenEditorRef.current.setHTML(markBlankParagraphs(html));
-              onChange(unescapeUrls(hiddenEditorRef.current.getMarkdown()));
+              onChange(normalizeToastMarkdown(hiddenEditorRef.current.getMarkdown()));
             },
           },
         });
@@ -150,7 +152,8 @@ export default function BodyEditor({ initialValue, contentType, onChange }: Prop
           style={{ display: 'none' }}
           onChange={onPickPhotos}
         />
-        <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}>
+        {/* secondary: 主ボタン「保存して commit」と同じ青だと押し間違えるため枠線スタイルに */}
+        <button type="button" class="secondary" onClick={() => fileRef.current?.click()} disabled={uploading}>
           📷 写真を追加
         </button>
         {uploading && <span style={{ fontSize: '0.85rem', opacity: 0.7 }}>アップロード中… {done}/{total}</span>}

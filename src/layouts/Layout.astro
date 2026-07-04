@@ -65,6 +65,8 @@ const user = Astro.locals.user;
 
       /* Toast UI: 挿入直後の実寸大画像がエディタ幅を突き破るのを防ぐ */
       .toastui-editor-contents img { max-width: 100%; height: auto; }
+      /* Toast UI の既定 13px は小さい。他の入力欄と同じ 16px に（iOS の自動ズーム回避条件とも一致） */
+      .toastui-editor-contents { font-size: 16px; }
       .toastui-editor-defaultUI { max-width: 100%; }
 
       @media (max-width: 640px) {
