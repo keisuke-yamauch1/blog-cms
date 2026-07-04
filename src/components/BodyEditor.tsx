@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 // CSS は静的 import（Astro/Vite が確実にページに <link> する。動的だと当たらないことがある）
 import '@toast-ui/editor/dist/toastui-editor.css';
+import { unescapeUrls } from '../lib/markdown-normalize';
 
 interface Props {
   initialValue: string;
@@ -49,7 +50,7 @@ export default function BodyEditor({ initialValue, contentType, onChange }: Prop
           },
           events: {
             change: () => {
-              if (editorRef.current) onChange(editorRef.current.getMarkdown());
+              if (editorRef.current) onChange(unescapeUrls(editorRef.current.getMarkdown()));
             },
           },
         });
