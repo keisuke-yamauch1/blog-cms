@@ -6,14 +6,13 @@ import type { PostMeta } from '../lib/schema';
 
 const adapter = getAdapter(Astro.locals);
 const types = contentTypeList();
-const LIST_LIMIT = 50; // 一覧で本文取得するのは最近この件数まで（軽量化）
 
 let groups: { type: string; label: string; posts: PostMeta[]; total: number }[] = [];
 let error: string | null = null;
 try {
   groups = await Promise.all(
     types.map(async (type) => {
-      const { posts, total } = await adapter.list(type, { limit: LIST_LIMIT });
+      const { posts, total } = await adapter.list(type);
       return { type, label: CONTENT_TYPES[type].label, posts, total };
     })
   );
@@ -36,7 +35,12 @@ const fmt = (d: Date | string) => {
         </button>
       ))}
     </div>
-    <a id="new-link" class="new-btn" href={`/new/${types[0]}`}>＋ 新規作成</a>
+    <div class="actions">
+      <form method="POST" action="/api/resync" class="resync-form">
+        <button type="submit" class="resync-btn" title="GitHub から一覧を組み直す（外部編集の取り込み）">再同期</button>
+      </form>
+      <a id="new-link" class="new-btn" href={`/new/${types[0]}`}>＋ 新規作成</a>
+    </div>
   </div>
 
   {error && <p class="error">⚠️ {error}</p>}
@@ -89,6 +93,20 @@ const fmt = (d: Date | string) => {
       font-size: 0.72rem; font-weight: 600; opacity: 0.55;
       font-variant-numeric: tabular-nums;
     }
+    .actions { display: inline-flex; align-items: center; gap: 0.5rem; }
+    .resync-form { margin: 0; }
+    /* 従属ボタン（外部編集の取り込み用・目立たせない） */
+    .resync-btn {
+      display: inline-flex; align-items: center;
+      padding: 0.5rem 0.85rem; border-radius: 9px;
+      background: transparent; color: inherit; cursor: pointer;
+      border: 1px solid #8884;
+      font-size: 0.85rem; font-weight: 600; line-height: 1;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .resync-btn:hover { background: #8881; border-color: #8886; }
+    .resync-btn:active { transform: translateY(1px); }
+
     /* 主役ボタン */
     .new-btn {
       display: inline-flex; align-items: center;

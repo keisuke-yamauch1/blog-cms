@@ -33,41 +33,8 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
   const owner = env.GITHUB_OWNER;
   const repo = env.GITHUB_REPO;
 
-  // ===== 一覧キャッシュ（Cloudflare Cache API） =====
-  // 一覧は毎回 GitHub API を叩くと 1〜2 秒かかるため、短時間キャッシュして
-  // 2回目以降を即応答にする。save/delete 時に該当タイプを bust する。
-  const LIST_CACHE_TTL = 300; // 秒
-  function listCacheKey(type: ContentType): Request {
-    return new Request(`https://blog-cms.internal/list/${type}`);
-  }
-  function edgeCache(): Cache | null {
-    return (globalThis as any).caches?.default ?? null;
-  }
-  async function readListCache(type: ContentType): Promise<ListResult | null> {
-    const cache = edgeCache();
-    if (!cache) return null;
-    const hit = await cache.match(listCacheKey(type));
-    if (!hit) return null;
-    const data = (await hit.json()) as ListResult;
-    // pubDate は JSON で文字列化されるので Date に戻す
-    data.posts = data.posts.map((p) => ({ ...p, pubDate: new Date(p.pubDate as unknown as string) }));
-    return data;
-  }
-  async function writeListCache(type: ContentType, result: ListResult): Promise<void> {
-    const cache = edgeCache();
-    if (!cache) return;
-    const body = JSON.stringify(result);
-    await cache.put(
-      listCacheKey(type),
-      new Response(body, {
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${LIST_CACHE_TTL}` },
-      }),
-    );
-  }
-  async function bustListCache(type: ContentType): Promise<void> {
-    const cache = edgeCache();
-    if (cache) await cache.delete(listCacheKey(type));
-  }
+  // 一覧の高速化は KV デコレータ（kv-cached-adapter.ts）が担う。
+  // ここは「純粋な GitHub 読み書き」に徹する。
 
   // 1ファイルの content + sha を取得（無ければ null）
   async function readFile(path: string): Promise<{ content: string; sha: string } | null> {
@@ -116,10 +83,6 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
   return {
     async list(type: ContentType, opts?: { limit?: number }): Promise<ListResult> {
       const dir = CONTENT_TYPES[type].dir;
-
-      // キャッシュヒットなら即返す（GitHub 往復を省く）
-      const cached = await readListCache(type);
-      if (cached) return cached;
 
       // 1) ファイル名だけを軽量取得（本文を引かないので数KB）。
       //    REST の「ファイルごと getContent」は subrequest 上限に当たり、
@@ -181,9 +144,7 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
         .filter((m): m is PostMeta => m !== null);
 
       metas.sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime());
-      const result: ListResult = { posts: metas, total };
-      await writeListCache(type, result);
-      return result;
+      return { posts: metas, total };
     },
 
     async get(type: ContentType, id: string): Promise<Post | null> {
@@ -204,7 +165,6 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
       } catch (error: any) {
         throw toError(error, `保存失敗: ${path}`);
       }
-      await bustListCache(type); // 一覧キャッシュを無効化（自分の編集を即反映）
     },
 
     async delete(type: ContentType, id: string): Promise<void> {
@@ -218,7 +178,6 @@ export function createGitHubAdapter(env: AdapterEnv): StorageAdapter {
       } catch (error: any) {
         throw toError(error, `削除失敗: ${path}`);
       }
-      await bustListCache(type); // 一覧キャッシュを無効化
     },
   };
 }

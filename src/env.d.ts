@@ -12,6 +12,8 @@ interface Env {
   CF_ACCESS_AUD?: string;         // Access アプリの Application Audience (AUD) tag
   // R2 バケット（画像アップロード先・images.kechiiiiin.com）
   IMAGES?: R2Bucket;
+  // KV: 一覧メタのキャッシュ（真実は GitHub。壊れたらキー削除で再構築される）
+  CMS_CACHE?: KVNamespace;
 }
 
 type Runtime = import('@astrojs/cloudflare').Runtime<Env>;

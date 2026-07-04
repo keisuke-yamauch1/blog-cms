@@ -12,3 +12,10 @@ pages_build_output_dir = "./dist"
 [[r2_buckets]]
 binding = "IMAGES"
 bucket_name = "images"
+
+# KV: 一覧メタのキャッシュ（真実は GitHub。壊れたらキー削除で再構築される）
+# ※ Pages では wrangler.toml は参考値。ダッシュボード Settings → Functions →
+#   KV namespace bindings に同名 CMS_CACHE を追加するのが本体（手作業）。
+[[kv_namespaces]]
+binding = "CMS_CACHE"
+id = "bed190d381d846f0b24e7669fd04b172"
