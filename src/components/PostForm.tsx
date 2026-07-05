@@ -22,7 +22,10 @@ interface Props {
 }
 
 function toLocalInput(iso?: string): string {
-  const d = iso ? new Date(iso) : new Date();
+  // SSR は Workers（UTC）で走るため、環境のローカル時刻ではなく JST の壁時計に明示変換する
+  // （他箇所の日付生成と同方式。これをしないと開いた瞬間の表示が UTC になる）
+  const src = iso ? new Date(iso) : new Date();
+  const d = new Date(src.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
